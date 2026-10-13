@@ -10,16 +10,35 @@
 
 // The six products from Scenario 5 (prices are in pesos)
 const products = [
-  { id: 1, name: "Instant Noodles",  price: 18, category: "Snacks",          icon: "\u{1F35C}" },
-  { id: 2, name: "Potato Chips",     price: 25, category: "Snacks",          icon: "\u{1F35F}" },
-  { id: 3, name: "Soft Drink (Can)", price: 25, category: "Beverages",       icon: "\u{1F964}" },
-  { id: 4, name: "Bottled Water",    price: 20, category: "Beverages",       icon: "\u{1F4A7}" },
-  { id: 5, name: "Ballpen (piece)",  price: 12, category: "School Supplies", icon: "\u{1F58A}\uFE0F" },
-  { id: 6, name: "Notebook (piece)", price: 35, category: "School Supplies", icon: "\u{1F4D3}" }
+  { id: 1, name: "Instant Noodles",  price: 18, category: "Snacks" },
+  { id: 2, name: "Potato Chips",     price: 25, category: "Snacks" },
+  { id: 3, name: "Soft Drink (Can)", price: 25, category: "Beverages" },
+  { id: 4, name: "Bottled Water",    price: 20, category: "Beverages" },
+  { id: 5, name: "Ballpen (piece)",  price: 12, category: "School Supplies" },
+  { id: 6, name: "Notebook (piece)", price: 35, category: "School Supplies" }
 ];
+
+// Product artwork (inline SVG, no external image files needed)
+const ART = {
+  1: '<path d="M18 48h84l-12 80H30z" fill="#C8102E"/><path d="M24 74h72l-3 26H27z" fill="#FFD329"/><ellipse cx="60" cy="48" rx="42" ry="8" fill="#fff"/><path d="M34 46c4-20 14-20 18-6s14 14 18-4 12-8 16 8" stroke="#F2B84B" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M27 56l7 64" stroke="#fff" opacity=".25" stroke-width="5"/><text x="60" y="93" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="11" fill="#C8102E">NOODLES</text>',
+  2: '<path d="M24 14c-5 40-5 80 0 114h72c5-34 5-74 0-114z" fill="#FFD329"/><path d="M24 14h72v10H24zM24 118h72v10H24z" fill="#E0A800"/><circle cx="60" cy="72" r="27" fill="#C8102E"/><text x="60" y="77" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="14" fill="#fff">CHIPS</text><ellipse cx="42" cy="44" rx="9" ry="6" fill="#F2A93B" transform="rotate(-20 42 44)"/><ellipse cx="80" cy="102" rx="9" ry="6" fill="#F2A93B" transform="rotate(25 80 102)"/><path d="M33 28l4 86" stroke="#fff" opacity=".4" stroke-width="5"/>',
+  3: '<path d="M32 24h56l3 8v94q0 8-8 8H37q-8 0-8-8V32z" fill="#E51B23"/><path d="M29 54q15-12 31 0t31 0v38q-16 12-31 0t-31 0z" fill="#fff"/><path d="M32 22h56l3 8H29z" fill="#C9CED3"/><rect x="29" y="126" width="62" height="9" rx="3" fill="#C9CED3"/><text x="60" y="78" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="15" fill="#C8102E">SODA</text><path d="M38 40v78" stroke="#fff" opacity=".35" stroke-width="5"/>',
+  4: '<rect x="48" y="6" width="24" height="15" rx="3" fill="#1E78D6"/><path d="M50 21h20v10c0 8 20 10 20 28v70q0 6-6 6H36q-6 0-6-6V59c0-18 20-20 20-28z" fill="#CFEAFB" stroke="#7FB9E4" stroke-width="2"/><rect x="30" y="74" width="60" height="36" fill="#fff"/><rect x="30" y="74" width="60" height="8" fill="#C8102E"/><text x="60" y="100" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="12" fill="#1E78D6">WATER</text><path d="M38 40v28" stroke="#fff" stroke-width="4" opacity=".8"/>',
+  5: '<g transform="rotate(35 60 70)"><rect x="52" y="8" width="16" height="96" rx="6" fill="#C8102E"/><rect x="52" y="74" width="16" height="22" fill="#211D1D"/><rect x="68" y="14" width="4" height="30" rx="2" fill="#FFD329"/><path d="M52 104h16l-6 22h-4z" fill="#E9E9E9"/><path d="M58 126h4l-2 8z" fill="#211D1D"/></g>',
+  6: '<rect x="28" y="12" width="68" height="116" rx="7" fill="#C8102E"/><rect x="28" y="12" width="12" height="116" rx="5" fill="#8F0B1F"/><rect x="50" y="40" width="38" height="34" rx="5" fill="#FFD329"/><path d="M55 54h28M55 62h20" stroke="#C8102E" stroke-width="2.5" stroke-linecap="round"/><path d="M30 28h-6M30 48h-6M30 68h-6M30 88h-6M30 108h-6" stroke="#CFCFCF" stroke-width="4" stroke-linecap="round"/>'
+};
+function getArt(id) {
+  return '<svg viewBox="0 0 120 140" aria-hidden="true">' + ART[id] + '</svg>';
+}
 
 // The cart holds items like: { id, name, price, quantity }
 let cart = [];
+
+// Remembers which row changed last, so only that row animates
+let lastChanged = null;
+
+// Category chip currently selected on the Home page ("All" shows everything)
+let activeCategory = "All";
 
 // Counts successful transactions (used for the reference number)
 let transactionCount = 0;
@@ -36,6 +55,10 @@ const MAX_CASH = 1000000;
 // Home page (product list)
 const productGrid       = document.getElementById("product-grid");
 const searchInput       = document.getElementById("search-input");
+const resultsCount      = document.getElementById("results-count");
+const categoryFilters   = document.getElementById("category-filters");
+const toastRegion       = document.getElementById("toast-region");
+const summaryCount      = document.getElementById("summary-count");
 
 // Cart page
 const cartTable         = document.getElementById("cart-table");
@@ -103,6 +126,11 @@ function getCartTotal() {
 function showMessage(text, type) {
   paymentMessage.textContent = text;
   paymentMessage.className = "message " + type;
+  if (type === "error") {
+    cashInput.classList.remove("shake");
+    void cashInput.offsetWidth;
+    cashInput.classList.add("shake");
+  }
 }
 
 // Remove the message under the cash input
@@ -114,6 +142,7 @@ function clearMessage() {
 // Clear the message and set the change display back to zero
 function resetPaymentFeedback() {
   clearMessage();
+  cashInput.classList.remove("is-valid");
   changeAmount.textContent = formatMoney(0);
 }
 
@@ -155,26 +184,49 @@ function setCheckoutLocked(isLocked) {
 function renderProducts(filterText = "") {
   const search = filterText.trim().toLowerCase();
   const visibleProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search));
+    (activeCategory === "All" || p.category === activeCategory) &&
+    (p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search)));
+
+  resultsCount.textContent = visibleProducts.length + (visibleProducts.length === 1 ? " product" : " products");
 
   if (visibleProducts.length === 0) {
-    productGrid.innerHTML = '<p class="placeholder">No products match your search.</p>';
+    productGrid.innerHTML = '<div class="empty-state"><strong>No products match</strong><p>Try another search word or category.</p>' +
+      '<button type="button" class="btn btn-outline" data-action="reset-filters">Show all products</button></div>';
     return;
   }
 
   const disabled = transactionLocked ? "disabled" : "";
   let html = "";
-  for (const product of visibleProducts) {
+  visibleProducts.forEach((product, index) => {
     html += `
-      <article class="product-card">
-        <div class="product-image" aria-hidden="true">${product.icon}</div>
-        <span class="product-category">${product.category}</span>
+      <article class="product-card reveal" data-cat="${product.category}" style="--i:${index}">
+        <div class="product-image" aria-hidden="true">${getArt(product.id)}<span class="product-category">${product.category}</span></div>
         <h3 class="product-name">${product.name}</h3>
         <p class="product-price">${formatMoney(product.price)}</p>
-        <button type="button" class="btn btn-accent" data-id="${product.id}" ${disabled}>&#128722; Add to Cart</button>
+        <button type="button" class="btn btn-accent" data-id="${product.id}" ${disabled}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add to Cart</span></button>
       </article>`;
-  }
+  });
   productGrid.innerHTML = html;
+  productGrid.querySelectorAll(".reveal").forEach(card => {
+    if (revealObserver) revealObserver.observe(card); else card.classList.add("in");
+  });
+}
+
+// Category chips are built from the real product categories
+function renderFilters() {
+  const names = ["All"].concat([...new Set(products.map(p => p.category))]);
+  categoryFilters.innerHTML = names.map(name => {
+    const count = name === "All" ? products.length : products.filter(p => p.category === name).length;
+    const label = name === "All" ? "All Products" : name;
+    return `<button type="button" class="chip" data-category="${name}" aria-pressed="${name === activeCategory}">${label} (${count})</button>`;
+  }).join("");
+}
+
+function resetFilters() {
+  activeCategory = "All";
+  searchInput.value = "";
+  renderFilters();
+  renderProducts();
 }
 
 /* ---------- 5. CART (Steps 2 & 3: Add to Cart, Review Order) ---------- */
@@ -195,9 +247,10 @@ function addToCart(productId) {
     existingItem.quantity += 1;
   } else {
     const product = products.find(p => p.id === productId);
-    cart.push({ id: product.id, name: product.name, price: product.price, icon: product.icon, quantity: 1 });
+    cart.push({ id: product.id, name: product.name, price: product.price, category: product.category, quantity: 1 });
   }
 
+  lastChanged = { id: productId, type: "added" };
   refreshCart();
 }
 
@@ -212,6 +265,7 @@ function changeQuantity(productId, step) {
   if (newQuantity < 1) return;
 
   item.quantity = newQuantity;
+  lastChanged = { id: productId, type: "qty" };
   refreshCart();
 }
 
@@ -234,16 +288,17 @@ function clearCart() {
 function createCartRowHtml(item) {
   const disabledAttr  = transactionLocked ? "disabled" : "";
   const minusDisabled = (item.quantity === 1 || transactionLocked) ? "disabled" : "";
+  const rowClass = (lastChanged && lastChanged.id === item.id && lastChanged.type === "added") ? "row-new" : "";
 
   return `
-      <tr>
-        <td><span class="item-cell"><span class="item-icon" aria-hidden="true">${item.icon}</span>${item.name}</span></td>
+      <tr class="${rowClass}" data-id="${item.id}">
+        <td data-label="Item"><span class="item-cell"><span class="item-thumb" data-cat="${item.category}" aria-hidden="true">${getArt(item.id)}</span><span><b>${item.name}</b><small class="unit">${formatMoney(item.price)} each</small></span></span></td>
         <td>${formatMoney(item.price)}</td>
         <td>
           <div class="qty-controls">
             <button type="button" class="qty-btn" data-action="decrease" data-id="${item.id}"
                     aria-label="Decrease quantity of ${item.name}" ${minusDisabled}>&minus;</button>
-            <span class="qty-value">${item.quantity}</span>
+            <span class="qty-value${(lastChanged && lastChanged.id === item.id && lastChanged.type === "qty") ? " pop" : ""}">${item.quantity}</span>
             <button type="button" class="qty-btn" data-action="increase" data-id="${item.id}"
                     aria-label="Increase quantity of ${item.name}" ${disabledAttr}>+</button>
           </div>
@@ -270,15 +325,21 @@ function renderCart() {
   }
   cartItems.innerHTML = html;
 
+  const totalChanged = cartTotal.textContent !== formatMoney(total);
   cartTotal.textContent = formatMoney(total);
   amountDue.textContent = formatMoney(total);
+  if (totalChanged) pulse(cartTotal);
 
   // Cart badge in the sidebar and the Proceed to Payment button
   let count = 0;
   for (const item of cart) count += item.quantity;
+  if (String(count) !== cartCount.textContent) pulse(cartCount, "bump");
   cartCount.textContent = count;
   cartCount.hidden = (count === 0);
+  summaryCount.textContent = count;
   toPaymentBtn.disabled = cartIsEmpty;
+  clearCartBtn.disabled = cartIsEmpty || transactionLocked;
+  lastChanged = null;
 }
 
 /* ---------- 6. PAYMENT (Steps 4, 5 & 6) ---------- */
@@ -368,6 +429,7 @@ function confirmPayment() {
 
   showConfirmation(transaction);
   showReceipt(transaction);
+  showToast("Payment confirmed. Receipt ready.");
 }
 
 // Step 6: payment confirmation box
@@ -429,8 +491,11 @@ function startNewTransaction() {
   resetPaymentFeedback();
   renderCart();
   searchInput.value = "";
+  activeCategory = "All";
+  renderFilters();
   renderProducts();
   showPage("home");
+  showToast("Ready for the next customer.");
 }
 
 /* ---------- 9. NAVIGATION AND HEADER ---------- */
@@ -448,7 +513,7 @@ function showPage(name) {
 
 // Show the current date and time in the header
 function updateClock() {
-  clockEl.textContent = new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
+  clockEl.textContent = new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "medium" });
 }
 
 /* ---------- 10. EVENT LISTENERS ---------- */
@@ -457,7 +522,10 @@ function updateClock() {
 productGrid.addEventListener("click", function (event) {
   const button = event.target.closest("button");
   if (!button) return;
+  if (button.dataset.action === "reset-filters") { resetFilters(); return; }
+  if (!button.dataset.id) return;
   addToCart(Number(button.dataset.id));
+  flashAdded(button, Number(button.dataset.id));
 });
 
 // One listener on the cart handles +, - and Remove buttons
@@ -504,9 +572,102 @@ for (const link of navLinks) {
 toPaymentBtn.addEventListener("click", function () { showPage("payment"); });
 backToCartBtn.addEventListener("click", function () { showPage("cart"); });
 
+/* ---------- 10b. DESIGN FEATURES (filters, toasts, animation, print) ---------- */
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Cards fade in as they scroll into view
+const revealObserver = ("IntersectionObserver" in window && !reduceMotion)
+  ? new IntersectionObserver(function (entries) {
+      for (const entry of entries) {
+        if (entry.isIntersecting) { entry.target.classList.add("in"); revealObserver.unobserve(entry.target); }
+      }
+    }, { threshold: 0.15 })
+  : null;
+
+// Re-run a CSS animation class on an element
+function pulse(element, className = "pop") {
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+}
+
+function showToast(text) {
+  while (toastRegion.children.length >= 3) toastRegion.firstChild.remove();
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = text;
+  toastRegion.appendChild(toast);
+  setTimeout(() => toast.classList.add("out"), 2200);
+  setTimeout(() => toast.remove(), 2600);
+}
+
+// Small "Added" confirmation on the button and a toast
+function flashAdded(button, productId) {
+  const product = products.find(p => p.id === productId);
+  const label = button.querySelector("span");
+  button.classList.add("added");
+  label.textContent = "Added";
+  clearTimeout(button.flashTimer);
+  button.flashTimer = setTimeout(() => { button.classList.remove("added"); label.textContent = "Add to Cart"; }, 900);
+  showToast(product.name + " added to cart");
+}
+
+categoryFilters.addEventListener("click", function (event) {
+  const chip = event.target.closest(".chip");
+  if (!chip) return;
+  activeCategory = chip.dataset.category;
+  renderFilters();
+  renderProducts(searchInput.value);
+});
+
+// 3D tilt on product cards (mouse only)
+productGrid.addEventListener("pointermove", function (event) {
+  const card = event.target.closest(".product-card");
+  if (!card || event.pointerType !== "mouse" || reduceMotion) return;
+  const box = card.getBoundingClientRect();
+  card.style.setProperty("--ry", ((event.clientX - box.left) / box.width - 0.5) * 10 + "deg");
+  card.style.setProperty("--rx", (0.5 - (event.clientY - box.top) / box.height) * 8 + "deg");
+});
+productGrid.addEventListener("pointerout", function (event) {
+  const card = event.target.closest(".product-card");
+  if (card && !card.contains(event.relatedTarget)) {
+    card.style.removeProperty("--rx");
+    card.style.removeProperty("--ry");
+  }
+});
+
+// Hero: artwork, price sticker, parallax tilt, scroll button
+for (const slot of document.querySelectorAll("[data-art]")) slot.innerHTML = getArt(Number(slot.dataset.art));
+document.getElementById("hero-min-price").textContent = formatMoney(Math.min(...products.map(p => p.price)));
+const heroEl = document.querySelector(".hero");
+heroEl.addEventListener("pointermove", function (event) {
+  if (reduceMotion || event.pointerType !== "mouse") return;
+  const box = heroEl.getBoundingClientRect();
+  const scene = heroEl.querySelector(".hero-scene");
+  scene.style.setProperty("--ry", ((event.clientX - box.left) / box.width - 0.5) * 16 + "deg");
+  scene.style.setProperty("--rx", (0.5 - (event.clientY - box.top) / box.height) * 10 + "deg");
+});
+document.getElementById("explore-btn").addEventListener("click", function () {
+  document.getElementById("products").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+});
+setTimeout(() => heroEl.classList.remove("intro"), 2500);
+
+document.getElementById("empty-cart-btn").addEventListener("click", function () { showPage("home"); });
+document.getElementById("print-btn").addEventListener("click", function () { window.print(); });
+
+// Live change preview: shows change only while the typed amount is valid
+cashInput.addEventListener("input", function () {
+  const total = getCartTotal();
+  const check = validateCash(cashInput.value, total);
+  cashInput.classList.toggle("is-valid", check.valid);
+  changeAmount.textContent = formatMoney(check.valid ? roundMoney(check.amount - total) : 0);
+});
+
 /* ---------- 11. START THE APP ---------- */
+renderFilters();
 renderProducts();
 renderCart();
 resetPaymentFeedback();
 updateClock();
-setInterval(updateClock, 30000);
+setInterval(updateClock, 1000);
