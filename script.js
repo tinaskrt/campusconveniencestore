@@ -2,7 +2,8 @@
    Campus Convenience Store POS - script.js
    Sections: 1 Data | 2 Page elements | 3 Helpers
              4 Products | 5 Cart | 6 Payment | 7 Receipt
-             8 New transaction | 9 Event listeners | 10 Start
+             8 New transaction | 9 Navigation & header
+             10 Event listeners | 11 Start
    ===================================================== */
 
 /* ---------- 1. DATA ---------- */
@@ -26,44 +27,55 @@ let transactionCount = 0;
 // true after payment is confirmed, so the finished sale cannot be changed
 let transactionLocked = false;
 
+// Largest cash amount the cashier can enter (stops absurd values)
+const MAX_CASH = 1000000;
+
 /* ---------- 2. PAGE ELEMENTS ---------- */
 // We find each HTML element once, using the ids from index.html
 
-const productGrid     = document.getElementById("product-grid");
-const emptyCartMsg    = document.getElementById("empty-cart-message");
-const cartTable       = document.getElementById("cart-table");
-const cartItems       = document.getElementById("cart-items");
-const cartTotal       = document.getElementById("cart-total");
+// Home page (product list)
+const productGrid       = document.getElementById("product-grid");
+const searchInput       = document.getElementById("search-input");
 
-const amountDue       = document.getElementById("amount-due");
-const cashInput       = document.getElementById("cash-input");
-const changeAmount    = document.getElementById("change-amount");
-const paymentMessage  = document.getElementById("payment-message");
-const confirmBtn      = document.getElementById("confirm-btn");
+// Cart page
+const cartTable         = document.getElementById("cart-table");
+const cartItems         = document.getElementById("cart-items");
+const cartTotal         = document.getElementById("cart-total");
+const emptyCartMsg      = document.getElementById("empty-cart-message");
+const clearCartBtn      = document.getElementById("clear-cart-btn");
+const toPaymentBtn      = document.getElementById("to-payment-btn");
 
-const confirmation    = document.getElementById("confirmation");
-const confirmRef      = document.getElementById("confirm-ref");
-const confirmTotal    = document.getElementById("confirm-total");
-const confirmPaid     = document.getElementById("confirm-paid");
-const confirmChange   = document.getElementById("confirm-change");
+// Payment page
+const amountDue         = document.getElementById("amount-due");
+const cashInput         = document.getElementById("cash-input");
+const changeAmount      = document.getElementById("change-amount");
+const paymentMessage    = document.getElementById("payment-message");
+const confirmBtn        = document.getElementById("confirm-btn");
+const backToCartBtn     = document.getElementById("back-to-cart-btn");
 
-const receiptSection  = document.getElementById("receipt-section");
-const receiptRef      = document.getElementById("receipt-ref");
-const receiptDate     = document.getElementById("receipt-date");
-const receiptItems    = document.getElementById("receipt-items");
-const receiptTotal    = document.getElementById("receipt-total");
-const receiptPaid     = document.getElementById("receipt-paid");
-const receiptChange   = document.getElementById("receipt-change");
+// Receipt page: payment confirmation
+const confirmation      = document.getElementById("confirmation");
+const confirmRef        = document.getElementById("confirm-ref");
+const confirmTotal      = document.getElementById("confirm-total");
+const confirmPaid       = document.getElementById("confirm-paid");
+const confirmChange     = document.getElementById("confirm-change");
+
+// Receipt page: digital receipt
+const noReceiptMsg      = document.getElementById("no-receipt-message");
+const receiptSection    = document.getElementById("receipt-section");
+const receiptRef        = document.getElementById("receipt-ref");
+const receiptDate       = document.getElementById("receipt-date");
+const receiptItems      = document.getElementById("receipt-items");
+const receiptTotal      = document.getElementById("receipt-total");
+const receiptPaid       = document.getElementById("receipt-paid");
+const receiptChange     = document.getElementById("receipt-change");
 const newTransactionBtn = document.getElementById("new-transaction-btn");
-const searchInput     = document.getElementById("search-input");
-const clearCartBtn    = document.getElementById("clear-cart-btn");
-const clockEl         = document.getElementById("clock");
-const navLinks        = document.querySelectorAll(".nav-link");
-const pages           = document.querySelectorAll(".page");
-const cartCount       = document.getElementById("cart-count");
-const toPaymentBtn    = document.getElementById("to-payment-btn");
-const backToCartBtn   = document.getElementById("back-to-cart-btn");
-const noReceiptMsg    = document.getElementById("no-receipt-message");
+
+// Header and sidebar
+const clockEl           = document.getElementById("clock");
+const cartCount         = document.getElementById("cart-count");
+const navLinks          = document.querySelectorAll(".nav-link");
+const pages             = document.querySelectorAll(".page");
 
 /* ---------- 3. HELPER FUNCTIONS ---------- */
 
@@ -93,11 +105,26 @@ function showMessage(text, type) {
   paymentMessage.className = "message " + type;
 }
 
-// Clear the message and set the change display back to zero
-function resetPaymentFeedback() {
+// Remove the message under the cash input
+function clearMessage() {
   paymentMessage.textContent = "";
   paymentMessage.className = "message";
+}
+
+// Clear the message and set the change display back to zero
+function resetPaymentFeedback() {
+  clearMessage();
   changeAmount.textContent = formatMoney(0);
+}
+
+// Find a product's row in the cart (undefined if it is not in the cart)
+function findCartItem(productId) {
+  return cart.find(item => item.id === productId);
+}
+
+// Price x quantity for one cart item
+function getItemSubtotal(item) {
+  return roundMoney(item.price * item.quantity);
 }
 
 // Make a reference number like TXN-20261013-0001
@@ -127,17 +154,17 @@ function setCheckoutLocked(isLocked) {
 
 function renderProducts(filterText = "") {
   const search = filterText.trim().toLowerCase();
-  const shown = products.filter(p =>
+  const visibleProducts = products.filter(p =>
     p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search));
 
-  if (shown.length === 0) {
+  if (visibleProducts.length === 0) {
     productGrid.innerHTML = '<p class="placeholder">No products match your search.</p>';
     return;
   }
 
   const disabled = transactionLocked ? "disabled" : "";
   let html = "";
-  for (const product of shown) {
+  for (const product of visibleProducts) {
     html += `
       <article class="product-card">
         <div class="product-image" aria-hidden="true">${product.icon}</div>
@@ -152,11 +179,17 @@ function renderProducts(filterText = "") {
 
 /* ---------- 5. CART (Steps 2 & 3: Add to Cart, Review Order) ---------- */
 
+// Called after every cart change: clear old payment feedback, then redraw the cart
+function refreshCart() {
+  resetPaymentFeedback();
+  renderCart();
+}
+
 // Add a product. If it is already in the cart, increase its quantity.
 function addToCart(productId) {
   if (transactionLocked) return;
 
-  const existingItem = cart.find(item => item.id === productId);
+  const existingItem = findCartItem(productId);
 
   if (existingItem) {
     existingItem.quantity += 1;
@@ -165,23 +198,21 @@ function addToCart(productId) {
     cart.push({ id: product.id, name: product.name, price: product.price, icon: product.icon, quantity: 1 });
   }
 
-  resetPaymentFeedback();
-  renderCart();
+  refreshCart();
 }
 
 // Change quantity by +1 or -1. Quantity never goes below 1.
-function changeQuantity(productId, amount) {
+function changeQuantity(productId, step) {
   if (transactionLocked) return;
 
-  const item = cart.find(i => i.id === productId);
+  const item = findCartItem(productId);
   if (!item) return;
 
-  const newQuantity = item.quantity + amount;
+  const newQuantity = item.quantity + step;
   if (newQuantity < 1) return;
 
   item.quantity = newQuantity;
-  resetPaymentFeedback();
-  renderCart();
+  refreshCart();
 }
 
 // Remove a product completely
@@ -189,29 +220,22 @@ function removeFromCart(productId) {
   if (transactionLocked) return;
 
   cart = cart.filter(item => item.id !== productId);
-  resetPaymentFeedback();
-  renderCart();
+  refreshCart();
 }
 
-// Redraw the cart table and update the totals
-function renderCart() {
-  const total = getCartTotal();
-  const locked = transactionLocked ? "disabled" : "";
+// Empty the whole cart (Clear Cart button)
+function clearCart() {
+  if (transactionLocked) return;
+  cart = [];
+  refreshCart();
+}
 
-  if (cart.length === 0) {
-    emptyCartMsg.hidden = false;
-    cartTable.hidden = true;
-  } else {
-    emptyCartMsg.hidden = true;
-    cartTable.hidden = false;
-  }
+// Build the HTML for one row of the cart table
+function createCartRowHtml(item) {
+  const disabledAttr  = transactionLocked ? "disabled" : "";
+  const minusDisabled = (item.quantity === 1 || transactionLocked) ? "disabled" : "";
 
-  let html = "";
-  for (const item of cart) {
-    const subtotal = roundMoney(item.price * item.quantity);
-    const minusDisabled = (item.quantity === 1 || transactionLocked) ? "disabled" : "";
-
-    html += `
+  return `
       <tr>
         <td><span class="item-cell"><span class="item-icon" aria-hidden="true">${item.icon}</span>${item.name}</span></td>
         <td>${formatMoney(item.price)}</td>
@@ -221,15 +245,28 @@ function renderCart() {
                     aria-label="Decrease quantity of ${item.name}" ${minusDisabled}>&minus;</button>
             <span class="qty-value">${item.quantity}</span>
             <button type="button" class="qty-btn" data-action="increase" data-id="${item.id}"
-                    aria-label="Increase quantity of ${item.name}" ${locked}>+</button>
+                    aria-label="Increase quantity of ${item.name}" ${disabledAttr}>+</button>
           </div>
         </td>
-        <td>${formatMoney(subtotal)}</td>
+        <td>${formatMoney(getItemSubtotal(item))}</td>
         <td>
           <button type="button" class="remove-btn" data-action="remove" data-id="${item.id}"
-                  aria-label="Remove ${item.name} from cart" ${locked}>Remove</button>
+                  aria-label="Remove ${item.name} from cart" ${disabledAttr}>Remove</button>
         </td>
       </tr>`;
+}
+
+// Redraw the cart table, totals, sidebar badge and Proceed button
+function renderCart() {
+  const total = getCartTotal();
+  const cartIsEmpty = (cart.length === 0);
+
+  emptyCartMsg.hidden = !cartIsEmpty;
+  cartTable.hidden = cartIsEmpty;
+
+  let html = "";
+  for (const item of cart) {
+    html += createCartRowHtml(item);
   }
   cartItems.innerHTML = html;
 
@@ -241,7 +278,7 @@ function renderCart() {
   for (const item of cart) count += item.quantity;
   cartCount.textContent = count;
   cartCount.hidden = (count === 0);
-  toPaymentBtn.disabled = (cart.length === 0);
+  toPaymentBtn.disabled = cartIsEmpty;
 }
 
 /* ---------- 6. PAYMENT (Steps 4, 5 & 6) ---------- */
@@ -270,6 +307,10 @@ function validateCash(rawValue, total) {
     return { valid: false, message: "Cash received cannot be negative." };
   }
 
+  if (amount > MAX_CASH) {
+    return { valid: false, message: "Cash received is too large. Please enter an amount up to " + formatMoney(MAX_CASH) + "." };
+  }
+
   if (text.includes(".") && text.split(".")[1].length > 2) {
     return { valid: false, message: "Cash received can have at most two decimal places." };
   }
@@ -291,17 +332,17 @@ function confirmPayment() {
   if (transactionLocked) return;
 
   const total = getCartTotal();
-  const result = validateCash(cashInput.value, total);
+  const validation = validateCash(cashInput.value, total);
 
   // Step 5: if invalid, show the error and stop
-  if (!result.valid) {
-    showMessage(result.message, "error");
+  if (!validation.valid) {
+    showMessage(validation.message, "error");
     changeAmount.textContent = formatMoney(0);
     return;
   }
 
   // Step 5: Change = Amount Paid - Total Amount
-  const change = roundMoney(result.amount - total);
+  const change = roundMoney(validation.amount - total);
 
   // Save a copy of the sale so the receipt can never change afterward
   transactionCount += 1;
@@ -312,10 +353,10 @@ function confirmPayment() {
       name: item.name,
       quantity: item.quantity,
       price: item.price,
-      subtotal: roundMoney(item.price * item.quantity)
+      subtotal: getItemSubtotal(item)
     })),
     total: total,
-    paid: result.amount,
+    paid: validation.amount,
     change: change
   };
 
@@ -376,6 +417,13 @@ function startNewTransaction() {
   receiptItems.innerHTML = "";
   receiptRef.textContent = "";
   receiptDate.textContent = "";
+  receiptTotal.textContent = "";
+  receiptPaid.textContent = "";
+  receiptChange.textContent = "";
+  confirmRef.textContent = "";
+  confirmTotal.textContent = "";
+  confirmPaid.textContent = "";
+  confirmChange.textContent = "";
 
   setCheckoutLocked(false);        // let the cashier use the controls again
   resetPaymentFeedback();
@@ -384,6 +432,8 @@ function startNewTransaction() {
   renderProducts();
   showPage("home");
 }
+
+/* ---------- 9. NAVIGATION AND HEADER ---------- */
 
 // Show one page (home, cart, payment or receipt) and hide the others
 function showPage(name) {
@@ -396,20 +446,12 @@ function showPage(name) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// Empty the whole cart (Clear Cart button)
-function clearCart() {
-  if (transactionLocked) return;
-  cart = [];
-  resetPaymentFeedback();
-  renderCart();
-}
-
 // Show the current date and time in the header
 function updateClock() {
   clockEl.textContent = new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
 }
 
-/* ---------- 9. EVENT LISTENERS ---------- */
+/* ---------- 10. EVENT LISTENERS ---------- */
 
 // One listener on the product grid handles every "Add to Cart" button
 productGrid.addEventListener("click", function (event) {
@@ -440,8 +482,7 @@ cashInput.addEventListener("keydown", function (event) {
 
 // Typing a new amount clears the old error message
 cashInput.addEventListener("input", function () {
-  paymentMessage.textContent = "";
-  paymentMessage.className = "message";
+  clearMessage();
 });
 
 newTransactionBtn.addEventListener("click", startNewTransaction);
@@ -463,7 +504,7 @@ for (const link of navLinks) {
 toPaymentBtn.addEventListener("click", function () { showPage("payment"); });
 backToCartBtn.addEventListener("click", function () { showPage("cart"); });
 
-/* ---------- 10. START THE APP ---------- */
+/* ---------- 11. START THE APP ---------- */
 renderProducts();
 renderCart();
 resetPaymentFeedback();

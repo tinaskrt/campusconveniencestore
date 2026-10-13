@@ -7,7 +7,6 @@
   --red-deep: #8F0B12;
   --yellow: #FFC928;
   --cream: #FFF4D6;
-  --bg: #F6F7F9;
   --white: #FFFFFF;
   --text: #242424;
   --muted: #6B7280;
@@ -18,7 +17,7 @@
   --radius: 14px;
 }
 
-/* 2. BASE */
+/* 2. BASE STYLES */
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -63,7 +62,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 }
 .clock { font-size: 0.85rem; text-align: right; }
 
-/* 4. SHELL: sidebar + white content panel */
+/* 4. LAYOUT, SIDEBAR AND PAGES */
 .shell {
   display: grid; grid-template-columns: 190px 1fr;
   gap: 20px; padding: 0 20px 20px;
@@ -76,6 +75,12 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 }
 .nav-link:hover { background: rgba(255, 255, 255, 0.14); }
 .nav-link.active { background: var(--yellow); color: var(--text); }
+.nav-badge {
+  display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px;
+  background: var(--yellow); color: var(--text); font-size: 0.8rem; font-weight: 700;
+  text-align: center; border-radius: 999px;
+}
+.nav-link.active .nav-badge { background: var(--red-dark); color: var(--white); }
 .tagline {
   margin-top: auto; padding: 24px 8px;
   font-family: "Brush Script MT", "Segoe Script", "Lucida Handwriting", cursive;
@@ -83,15 +88,12 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   transform: rotate(-6deg);
 }
 
+.page-narrow { max-width: 640px; }
+
 .content {
   min-width: 0; padding: 24px;
   background: var(--white); border-radius: 20px;
 }
-.layout {
-  display: grid; grid-template-columns: 1.45fr 1fr;
-  gap: 20px; align-items: start;
-}
-.side-column { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
 .panel {
   background: var(--white); border: 1px solid var(--border);
@@ -109,7 +111,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 }
 .search:focus { border-color: var(--red); }
 
-/* 5. PRODUCTS */
+/* 5. PRODUCT LIST */
 .product-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px;
 }
@@ -135,7 +137,8 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 .product-price { margin-bottom: 8px; font-size: 1.15rem; font-weight: 800; color: var(--red); }
 .product-card .btn { width: 100%; margin-top: auto; }
 
-/* 6. CART */
+/* 6. SHOPPING CART */
+.cart-panel .btn-large { margin-top: 14px; }
 .table-wrap { overflow-x: auto; }
 .cart-table, .receipt-table { width: 100%; border-collapse: collapse; }
 .cart-table th, .cart-table td {
@@ -215,7 +218,8 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 }
 .tile strong { font-size: 1.05rem; color: var(--red-dark); }
 
-/* 8. RECEIPT */
+/* 8. RECEIPT AND CONFIRMATION */
+.page-narrow .confirmation { margin: 0 0 20px; }
 .receipt {
   max-width: 380px; margin: 0 auto 18px; padding: 20px;
   background: var(--white); border: 1px solid var(--border);
@@ -236,6 +240,11 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 .receipt-totals p:last-child { color: var(--red); font-weight: 700; }
 
 /* 9. BUTTONS */
+.btn-link {
+  display: block; margin: 12px auto 0; padding: 6px 10px;
+  background: none; color: var(--red-dark); font-size: 0.95rem;
+}
+.btn-link:hover { text-decoration: underline; }
 .btn {
   padding: 10px 16px; font-size: 0.95rem; font-weight: 700;
   border: none; border-radius: 10px; cursor: pointer;
@@ -254,23 +263,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 button:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
 .product-card:has(button:disabled):hover { border-color: var(--border); box-shadow: none; }
 
-/* 11. PAGES (Home / Cart / Payment / Receipt) */
-.page-narrow { max-width: 640px; }
-.cart-panel .btn-large { margin-top: 14px; }
-.page-narrow .confirmation { margin: 0 0 20px; }
-.nav-badge {
-  display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px;
-  background: var(--yellow); color: var(--text); font-size: 0.8rem; font-weight: 700;
-  text-align: center; border-radius: 999px;
-}
-.nav-link.active .nav-badge { background: var(--red-dark); color: var(--white); }
-.btn-link {
-  display: block; margin: 12px auto 0; padding: 6px 10px;
-  background: none; color: var(--red-dark); font-size: 0.95rem;
-}
-.btn-link:hover { text-decoration: underline; }
-
-/* 12. RESPONSIVE */
+/* 11. RESPONSIVE DESIGN */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { flex-direction: row; flex-wrap: wrap; }
