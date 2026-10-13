@@ -27,8 +27,11 @@ const ART = {
   5: '<g transform="rotate(35 60 70)"><rect x="52" y="8" width="16" height="96" rx="6" fill="#C8102E"/><rect x="52" y="74" width="16" height="22" fill="#211D1D"/><rect x="68" y="14" width="4" height="30" rx="2" fill="#FFD329"/><path d="M52 104h16l-6 22h-4z" fill="#E9E9E9"/><path d="M58 126h4l-2 8z" fill="#211D1D"/></g>',
   6: '<rect x="28" y="12" width="68" height="116" rx="7" fill="#C8102E"/><rect x="28" y="12" width="12" height="116" rx="5" fill="#8F0B1F"/><rect x="50" y="40" width="38" height="34" rx="5" fill="#FFD329"/><path d="M55 54h28M55 62h20" stroke="#C8102E" stroke-width="2.5" stroke-linecap="round"/><path d="M30 28h-6M30 48h-6M30 68h-6M30 88h-6M30 108h-6" stroke="#CFCFCF" stroke-width="4" stroke-linecap="round"/>'
 };
+ART.generic = '<path d="M26 40h68l6 88H20z" fill="#C8102E"/><path d="M40 40a20 20 0 0 1 40 0" fill="none" stroke="#8F0B1F" stroke-width="6"/><circle cx="60" cy="84" r="20" fill="#FFD329"/>';
 function getArt(id) {
-  return '<svg viewBox="0 0 120 140" aria-hidden="true">' + ART[id] + '</svg>';
+  const product = products.find(p => p.id === id);
+  if (product && product.photo) return '<img src="' + product.photo + '" alt="">';
+  return '<svg viewBox="0 0 120 140" aria-hidden="true">' + (ART[id] || ART.generic) + '</svg>';
 }
 
 // The cart holds items like: { id, name, price, quantity }
@@ -40,11 +43,10 @@ let lastChanged = null;
 // Category chip currently selected on the Home page ("All" shows everything)
 let activeCategory = "All";
 
-// Counts successful transactions (used for the reference number)
-let transactionCount = 0;
-
 // true after payment is confirmed, so the finished sale cannot be changed
 let transactionLocked = false;
+
+let transactionCount = 0;
 
 // Largest cash amount the cashier can enter (stops absurd values)
 const MAX_CASH = 1000000;
@@ -55,6 +57,12 @@ const MAX_CASH = 1000000;
 // Home page (product list)
 const productGrid       = document.getElementById("product-grid");
 const searchInput       = document.getElementById("search-input");
+const scanForm          = document.getElementById("scan-form");
+const scanInput         = document.getElementById("scan-input");
+const scanMessage       = document.getElementById("scan-message");
+const cameraScanBtn     = document.getElementById("camera-scan-btn");
+const stopCameraBtn     = document.getElementById("stop-camera-btn");
+const scanReader        = document.getElementById("scan-reader");
 const resultsCount      = document.getElementById("results-count");
 const categoryFilters   = document.getElementById("category-filters");
 const toastRegion       = document.getElementById("toast-region");
@@ -157,15 +165,6 @@ function getItemSubtotal(item) {
 }
 
 // Make a reference number like TXN-20261013-0001
-function generateReference() {
-  const now = new Date();
-  const year  = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day   = String(now.getDate()).padStart(2, "0");
-  const number = String(transactionCount).padStart(4, "0");
-  return "TXN-" + year + month + day + "-" + number;
-}
-
 // Turn the checkout controls on or off (used after payment and on reset)
 function setCheckoutLocked(isLocked) {
   transactionLocked = isLocked;
@@ -185,7 +184,8 @@ function renderProducts(filterText = "") {
   const search = filterText.trim().toLowerCase();
   const visibleProducts = products.filter(p =>
     (activeCategory === "All" || p.category === activeCategory) &&
-    (p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search)));
+    (p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search) ||
+     String(p.barcode || "").toLowerCase().includes(search)));
 
   resultsCount.textContent = visibleProducts.length + (visibleProducts.length === 1 ? " product" : " products");
 
@@ -199,9 +199,9 @@ function renderProducts(filterText = "") {
   let html = "";
   visibleProducts.forEach((product, index) => {
     html += `
-      <article class="product-card reveal" data-cat="${product.category}" style="--i:${index}">
-        <div class="product-image" aria-hidden="true">${getArt(product.id)}<span class="product-category">${product.category}</span></div>
-        <h3 class="product-name">${product.name}</h3>
+      <article class="product-card reveal" data-cat="${esc(product.category)}" style="--i:${index}">
+        <div class="product-image" aria-hidden="true">${getArt(product.id)}<span class="product-category">${esc(product.category)}</span></div>
+        <h3 class="product-name">${esc(product.name)}</h3>
         <p class="product-price">${formatMoney(product.price)}</p>
         <button type="button" class="btn btn-accent" data-id="${product.id}" ${disabled}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add to Cart</span></button>
       </article>`;
@@ -218,7 +218,7 @@ function renderFilters() {
   categoryFilters.innerHTML = names.map(name => {
     const count = name === "All" ? products.length : products.filter(p => p.category === name).length;
     const label = name === "All" ? "All Products" : name;
-    return `<button type="button" class="chip" data-category="${name}" aria-pressed="${name === activeCategory}">${label} (${count})</button>`;
+    return `<button type="button" class="chip" data-category="${esc(name)}" aria-pressed="${name === activeCategory}">${esc(label)} (${count})</button>`;
   }).join("");
 }
 
@@ -252,6 +252,125 @@ function addToCart(productId) {
 
   lastChanged = { id: productId, type: "added" };
   refreshCart();
+}
+
+function addScannedProduct(rawCode) {
+  const code = rawCode.trim().toLowerCase();
+  if (!code) {
+    scanMessage.textContent = "Scan or enter a barcode or QR value first.";
+    return;
+  }
+
+  const product = products.find(item => String(item.barcode || "").trim().toLowerCase() === code);
+  scanInput.value = "";
+  if (!product) {
+    scanMessage.textContent = "No product is assigned to that code. Add the barcode or QR value to the product under Products.";
+    scanInput.focus();
+    return;
+  }
+
+  if (transactionLocked) {
+    scanMessage.textContent = "This sale is complete. Start a new transaction before scanning another product.";
+    return;
+  }
+
+  addToCart(product.id);
+  scanMessage.textContent = product.name + " added to the cart.";
+}
+
+let cameraScanner = null;
+let cameraScanStarting = false;
+
+async function stopCameraScan() {
+  const scanner = cameraScanner;
+  cameraScanner = null;
+  cameraScanBtn.disabled = true;
+  try {
+    if (scanner?.isScanning) await scanner.stop();
+    if (scanner) scanner.clear();
+  } catch (error) {
+    console.error("Could not stop the product scanner camera cleanly.", error);
+    scanMessage.textContent = "Camera scanning stopped, but the scanner could not fully reset. Reload the page if the camera stays active.";
+  } finally {
+    scanReader.replaceChildren();
+    scanReader.hidden = true;
+    stopCameraBtn.hidden = true;
+    cameraScanBtn.hidden = false;
+    cameraScanBtn.disabled = cameraScanStarting;
+  }
+}
+
+async function startCameraScan() {
+  if (cameraScanStarting || cameraScanner) return;
+  if (typeof window.Html5Qrcode !== "function") {
+    scanMessage.textContent = "The camera scanner could not load. Check your internet connection, then reload the page.";
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    scanMessage.textContent = "Camera access requires HTTPS or localhost in a browser with camera support. Use a USB scanner or type the code instead.";
+    return;
+  }
+
+  cameraScanStarting = true;
+  cameraScanBtn.disabled = true;
+  scanReader.hidden = false;
+  scanMessage.textContent = "Starting camera. Allow camera access when your browser asks.";
+
+  try {
+    const formats = window.Html5QrcodeSupportedFormats;
+    const scanner = new window.Html5Qrcode("scan-reader", {
+      verbose: false,
+      formatsToSupport: [
+        formats.QR_CODE,
+        formats.EAN_13,
+        formats.EAN_8,
+        formats.UPC_A,
+        formats.UPC_E,
+        formats.CODE_128,
+        formats.CODE_39,
+        formats.ITF,
+        formats.DATA_MATRIX
+      ]
+    });
+    cameraScanner = scanner;
+    await scanner.start(
+      { facingMode: "environment" },
+      {
+        fps: 10,
+        qrbox: (width, height) => ({
+          width: Math.floor(Math.min(width * 0.9, 320)),
+          height: Math.floor(Math.min(height * 0.6, 180))
+        }),
+        aspectRatio: 1.777778
+      },
+      async decodedText => {
+        if (cameraScanner !== scanner) return;
+        await stopCameraScan();
+        addScannedProduct(decodedText);
+      },
+      () => {}
+    );
+    if (cameraScanner === scanner) {
+      cameraScanBtn.hidden = true;
+      stopCameraBtn.hidden = false;
+      scanMessage.textContent = "Camera ready. Hold one product barcode or QR code inside the scan box.";
+    } else {
+      if (scanner.isScanning) await scanner.stop();
+      scanner.clear();
+    }
+  } catch (error) {
+    console.error("Could not start the product scanner camera.", error);
+    if (cameraScanner) await stopCameraScan();
+    else scanReader.hidden = true;
+    scanMessage.textContent = error.name === "NotAllowedError" || error.name === "PermissionDeniedError"
+      ? "Camera permission was denied. Allow camera access in your browser settings, then try again."
+      : error.name === "NotFoundError" || error.name === "NotReadableError"
+        ? "No usable camera was found. Check that the camera is connected and not in use by another app."
+        : "Could not start the camera. Use a USB scanner or type the code instead.";
+  } finally {
+    cameraScanStarting = false;
+    cameraScanBtn.disabled = false;
+  }
 }
 
 // Change quantity by +1 or -1. Quantity never goes below 1.
@@ -292,21 +411,21 @@ function createCartRowHtml(item) {
 
   return `
       <tr class="${rowClass}" data-id="${item.id}">
-        <td data-label="Item"><span class="item-cell"><span class="item-thumb" data-cat="${item.category}" aria-hidden="true">${getArt(item.id)}</span><span><b>${item.name}</b><small class="unit">${formatMoney(item.price)} each</small></span></span></td>
+        <td data-label="Item"><span class="item-cell"><span class="item-thumb" data-cat="${esc(item.category)}" aria-hidden="true">${getArt(item.id)}</span><span><b>${esc(item.name)}</b><small class="unit">${formatMoney(item.price)} each</small></span></span></td>
         <td>${formatMoney(item.price)}</td>
         <td>
           <div class="qty-controls">
             <button type="button" class="qty-btn" data-action="decrease" data-id="${item.id}"
-                    aria-label="Decrease quantity of ${item.name}" ${minusDisabled}>&minus;</button>
+                    aria-label="Decrease quantity of ${esc(item.name)}" ${minusDisabled}>&minus;</button>
             <span class="qty-value${(lastChanged && lastChanged.id === item.id && lastChanged.type === "qty") ? " pop" : ""}">${item.quantity}</span>
             <button type="button" class="qty-btn" data-action="increase" data-id="${item.id}"
-                    aria-label="Increase quantity of ${item.name}" ${disabledAttr}>+</button>
+                    aria-label="Increase quantity of ${esc(item.name)}" ${disabledAttr}>+</button>
           </div>
         </td>
         <td>${formatMoney(getItemSubtotal(item))}</td>
         <td>
           <button type="button" class="remove-btn" data-action="remove" data-id="${item.id}"
-                  aria-label="Remove ${item.name} from cart" ${disabledAttr}>Remove</button>
+                  aria-label="Remove ${esc(item.name)} from cart" ${disabledAttr}>Remove</button>
         </td>
       </tr>`;
 }
@@ -340,6 +459,14 @@ function renderCart() {
   toPaymentBtn.disabled = cartIsEmpty;
   clearCartBtn.disabled = cartIsEmpty || transactionLocked;
   lastChanged = null;
+}
+
+function generateReference() {
+  const now = new Date();
+  const date = now.getFullYear() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
+  return "TXN-" + date + "-" + String(transactionCount).padStart(4, "0");
 }
 
 /* ---------- 6. PAYMENT (Steps 4, 5 & 6) ---------- */
@@ -389,7 +516,7 @@ function validateCash(rawValue, total) {
 }
 
 // Runs when the cashier clicks Confirm Payment
-function confirmPayment() {
+async function confirmPayment() {
   if (transactionLocked) return;
 
   const total = getCartTotal();
@@ -404,8 +531,6 @@ function confirmPayment() {
 
   // Step 5: Change = Amount Paid - Total Amount
   const change = roundMoney(validation.amount - total);
-
-  // Save a copy of the sale so the receipt can never change afterward
   transactionCount += 1;
   const transaction = {
     reference: generateReference(),
@@ -451,7 +576,7 @@ function showReceipt(transaction) {
   for (const item of transaction.items) {
     html += `
       <tr>
-        <td>${item.name}</td>
+        <td>${esc(item.name)}</td>
         <td>${item.quantity}</td>
         <td>${formatMoney(item.price)}</td>
         <td>${formatMoney(item.subtotal)}</td>
@@ -502,6 +627,7 @@ function startNewTransaction() {
 
 // Show one page (home, cart, payment or receipt) and hide the others
 function showPage(name) {
+  if (name !== "home") stopCameraScan();
   for (const page of pages) {
     page.hidden = (page.id !== "page-" + name);
   }
@@ -559,6 +685,16 @@ clearCartBtn.addEventListener("click", clearCart);
 // Search box filters the product cards as you type
 searchInput.addEventListener("input", function () {
   renderProducts(searchInput.value);
+});
+
+scanForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  addScannedProduct(scanInput.value);
+});
+cameraScanBtn.addEventListener("click", startCameraScan);
+stopCameraBtn.addEventListener("click", function () {
+  stopCameraScan();
+  scanMessage.textContent = "Camera scanner stopped.";
 });
 
 // Sidebar links switch pages
@@ -638,8 +774,10 @@ productGrid.addEventListener("pointerout", function (event) {
 });
 
 // Hero: artwork, price sticker, parallax tilt, scroll button
-for (const slot of document.querySelectorAll("[data-art]")) slot.innerHTML = getArt(Number(slot.dataset.art));
-document.getElementById("hero-min-price").textContent = formatMoney(Math.min(...products.map(p => p.price)));
+function renderHeroArt() {
+  for (const slot of document.querySelectorAll("[data-art]")) slot.innerHTML = getArt(Number(slot.dataset.art));
+  document.getElementById("hero-min-price").textContent = formatMoney(Math.min(...products.map(p => p.price)));
+}
 const heroEl = document.querySelector(".hero");
 heroEl.addEventListener("pointermove", function (event) {
   if (reduceMotion || event.pointerType !== "mouse") return;
@@ -664,9 +802,253 @@ cashInput.addEventListener("input", function () {
   changeAmount.textContent = formatMoney(check.valid ? roundMoney(check.amount - total) : 0);
 });
 
+/* ---------- 10c. PRODUCT MANAGEMENT ---------- */
+
+const productForm  = document.getElementById("product-form");
+const newName      = document.getElementById("new-name");
+const newPrice     = document.getElementById("new-price");
+const newCategory  = document.getElementById("new-category");
+const newPhoto     = document.getElementById("new-photo");
+const photoPreview = document.getElementById("photo-preview");
+const productMsg   = document.getElementById("product-message");
+const manageList   = document.getElementById("manage-list");
+const catalogSearch = document.getElementById("catalog-search");
+const catalogCount = document.getElementById("catalog-count");
+const categoryList = document.getElementById("category-list");
+const photoReplace = document.getElementById("photo-replace");
+let pendingPhoto = "";
+let replaceId = null;
+
+// Make user-typed text safe to place inside innerHTML
+function esc(text) {
+  return String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+const STORAGE_KEY = "campusStoreProducts";
+
+function saveProducts() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+    return true;
+  } catch (error) {
+    console.error("Could not save products to browser storage.", error);
+    showToast("Could not save products. Browser storage may be full.");
+    return false;
+  }
+}
+
+function loadProducts() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) throw new Error("Saved product catalog is not a list.");
+    const valid = parsed.filter(product => product && typeof product.id === "number" &&
+      typeof product.name === "string" && typeof product.price === "number" &&
+      typeof product.category === "string");
+    if (valid.length) products.splice(0, products.length, ...valid);
+  } catch (error) {
+    console.error("Could not read saved products from browser storage.", error);
+    showToast("Saved product data could not be loaded. Showing the default catalog.");
+  }
+}
+
+// Resize a chosen photo to a 400x400 square JPEG so it stays small
+function readPhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) return reject(new Error("Please choose an image file (JPG, PNG or WebP)."));
+    if (file.size > 8 * 1024 * 1024) return reject(new Error("That photo is over 8 MB. Choose a smaller one."));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The photo could not be read."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That file is not a readable image."));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 400;
+        const ctx = canvas.getContext("2d");
+        const side = Math.min(img.width, img.height);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, 400, 400);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 400, 400);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function showProductMessage(text, type) {
+  productMsg.textContent = text;
+  productMsg.className = "message " + (text ? type : "");
+}
+
+function renderManageList() {
+  const query = catalogSearch.value.trim().toLowerCase();
+  const visibleProducts = products.filter(p =>
+    [p.name, p.category, String(p.barcode || "")].some(value => value.toLowerCase().includes(query))
+  );
+  catalogCount.textContent = `${visibleProducts.length} of ${products.length} products`;
+  categoryList.innerHTML = [...new Set(products.map(p => p.category))].map(c => `<option value="${esc(c)}">`).join("");
+  if (products.length === 0) {
+    manageList.innerHTML = '<li class="catalog-empty">No products yet. Add a product using the form.</li>';
+    return;
+  }
+  if (visibleProducts.length === 0) {
+    manageList.innerHTML = '<li class="catalog-empty">No products match your search.</li>';
+    return;
+  }
+  manageList.innerHTML = visibleProducts.map(p => `
+    <li class="manage-item">
+      <span class="item-thumb" data-cat="${esc(p.category)}" aria-hidden="true">${getArt(p.id)}</span>
+      <span class="manage-info"><b>${esc(p.name)}</b><small>${esc(p.category)} - ${formatMoney(p.price)}</small></span>
+      <div class="barcode-editor">
+        <label for="product-barcode-${p.id}">Barcode / QR value</label>
+        <input class="field" type="text" id="product-barcode-${p.id}" value="${esc(p.barcode || "")}" maxlength="2048" autocomplete="off">
+        <button type="button" class="btn btn-outline btn-small" data-action="save-barcode" data-id="${p.id}">Save code</button>
+      </div>
+      <div class="manage-actions">
+        <button type="button" class="btn btn-outline btn-small" data-action="photo" data-id="${p.id}">${p.photo ? "Change photo" : "Add photo"}</button>
+        ${p.custom ? `<button type="button" class="remove-btn" data-action="delete" data-id="${p.id}" aria-label="Delete ${esc(p.name)}">Delete</button>` : ""}
+      </div>
+    </li>`).join("");
+}
+
+// Redraw everything that shows the product catalog
+function refreshCatalog() {
+  if (activeCategory !== "All" && !products.some(p => p.category === activeCategory)) activeCategory = "All";
+  renderFilters();
+  renderProducts(searchInput.value);
+  renderManageList();
+  renderCart();
+  renderHeroArt();
+}
+
+catalogSearch.addEventListener("input", renderManageList);
+
+newPhoto.addEventListener("change", async function () {
+  pendingPhoto = "";
+  photoPreview.textContent = "No photo selected";
+  if (!newPhoto.files[0]) return;
+  try {
+    pendingPhoto = await readPhoto(newPhoto.files[0]);
+    photoPreview.innerHTML = '<img src="' + pendingPhoto + '" alt="Preview of the selected photo">';
+    showProductMessage("", "");
+  } catch (error) {
+    newPhoto.value = "";
+    showProductMessage(error.message, "error");
+  }
+});
+
+productForm.addEventListener("submit", async function (event) {
+  event.preventDefault();
+  const name = newName.value.trim();
+  const priceText = newPrice.value.trim();
+  const typed = newCategory.value.trim();
+  const barcode = document.getElementById("new-barcode").value.trim();
+  const fail = message => showProductMessage(message, "error");
+
+  if (!name) return fail("Enter a product name.");
+  if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) return fail("A product with that name already exists.");
+  if (!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(priceText) || Number(priceText) <= 0 || Number(priceText) > 100000) {
+    return fail("Enter a price above 0 with at most two decimals, for example 15 or 15.50.");
+  }
+  if (!typed) return fail("Enter or choose a category.");
+  if (barcode && products.some(p => String(p.barcode || "").trim().toLowerCase() === barcode.toLowerCase())) {
+    return fail("That barcode or QR value is already assigned to another product.");
+  }
+
+  const existing = products.find(p => p.category.toLowerCase() === typed.toLowerCase());
+  const id = Math.max(0, ...products.map(p => p.id)) + 1;
+  const product = { id: id, name: name, price: roundMoney(Number(priceText)), category: existing ? existing.category : typed, barcode: barcode, photo: pendingPhoto, custom: true };
+  const submitButton = productForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  products.push(product);
+  if (!saveProducts()) {
+    products.pop();
+    fail("Could not save the product. Try removing its photo or freeing browser storage.");
+    submitButton.disabled = false;
+    return;
+  }
+
+  productForm.reset();
+  pendingPhoto = "";
+  photoPreview.textContent = "No photo selected";
+  showProductMessage("", "");
+  refreshCatalog();
+  showToast(name + " added to the store");
+  submitButton.disabled = false;
+});
+
+manageList.addEventListener("click", function (event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+  const id = Number(button.dataset.id);
+  if (button.dataset.action === "photo") { replaceId = id; photoReplace.click(); }
+  if (button.dataset.action === "save-barcode") {
+    const product = products.find(p => p.id === id);
+    const input = document.getElementById("product-barcode-" + id);
+    if (!product || !input) return;
+    const barcode = input.value.trim();
+    if (barcode && products.some(p => p.id !== id && String(p.barcode || "").trim().toLowerCase() === barcode.toLowerCase())) {
+      showToast("That barcode or QR value is already assigned to another product.");
+      return;
+    }
+
+    const previousBarcode = product.barcode || "";
+    product.barcode = barcode;
+    if (!saveProducts()) {
+      product.barcode = previousBarcode;
+      input.value = previousBarcode;
+      showToast("Could not save the code. Try again after freeing browser storage.");
+      return;
+    }
+    renderManageList();
+    showToast(barcode ? "Scan code saved for " + product.name : "Scan code removed from " + product.name);
+    return;
+  }
+  if (button.dataset.action === "delete") {
+    const product = products.find(p => p.id === id);
+    if (findCartItem(id)) { showToast("Remove " + product.name + " from the cart first."); return; }
+    if (!window.confirm("Delete " + product.name + " from the store?")) return;
+    const productIndex = products.indexOf(product);
+    products.splice(productIndex, 1);
+    if (!saveProducts()) {
+      products.splice(productIndex, 0, product);
+      return;
+    }
+    refreshCatalog();
+    showToast(product.name + " deleted");
+  }
+});
+
+photoReplace.addEventListener("change", async function () {
+  const product = products.find(p => p.id === replaceId);
+  const file = photoReplace.files[0];
+  photoReplace.value = "";
+  if (!product || !file) return;
+  try {
+    const previousPhoto = product.photo;
+    product.photo = await readPhoto(file);
+    if (!saveProducts()) {
+      product.photo = previousPhoto;
+      showToast("Could not save the photo. Try a smaller image or free browser storage.");
+      return;
+    }
+    refreshCatalog();
+    showToast("Photo updated for " + product.name);
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+
 /* ---------- 11. START THE APP ---------- */
+loadProducts();
+renderHeroArt();
 renderFilters();
 renderProducts();
+renderManageList();
 renderCart();
 resetPaymentFeedback();
 updateClock();

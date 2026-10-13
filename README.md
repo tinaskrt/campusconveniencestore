@@ -39,16 +39,30 @@ The application features a modern red-and-yellow design inspired by real conveni
 10. Payment confirmation
 11. Digital receipt generation
 12. New Transaction functionality
+13. Product lookup by barcode or QR code
+14. Searchable product catalog for managing product photos and scan codes
 
 ## How to Run
 
 1. Download the project from GitHub.
 2. Open the project folder in Visual Studio Code.
-3. Open `index.html` in a web browser.
+3. Open `index.html` in a web browser, or run it with VS Code Live Server.
 4. Select products and add them to the cart.
 5. Enter the customer's cash payment.
 6. Confirm payment and view the receipt.
 7. Click New Transaction to process another order.
+
+## Product Storage
+
+The app opens directly to the cashier home page. Product changes and uploaded product photos are saved in this browser's local storage, so they are not shared across browsers or devices. Transactions are processed in the current browser session and are not uploaded to a database.
+
+## Scanning Products
+
+1. Open **Products** and enter each product's barcode or QR value, then select **Save code**. New products can be assigned a code when they are added.
+2. On Home, focus the scan field and scan with a USB barcode scanner; most scanner devices type the code and press Enter automatically. You can also type a code and press Enter or select **Add scanned product**.
+3. Select **Scan with camera** and allow camera access. The camera decoder supports QR codes and common retail barcode formats. Camera access requires HTTPS or localhost, a working camera, and an internet connection to load the scanner library. One matching scan adds one item to the cart.
+
+If a code is not assigned to a product, the scan status explains how to assign it under Products. Search also matches saved barcode/QR values.
 
 ## Project Information
 
