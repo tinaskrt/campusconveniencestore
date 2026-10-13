@@ -59,6 +59,11 @@ const searchInput     = document.getElementById("search-input");
 const clearCartBtn    = document.getElementById("clear-cart-btn");
 const clockEl         = document.getElementById("clock");
 const navLinks        = document.querySelectorAll(".nav-link");
+const pages           = document.querySelectorAll(".page");
+const cartCount       = document.getElementById("cart-count");
+const toPaymentBtn    = document.getElementById("to-payment-btn");
+const backToCartBtn   = document.getElementById("back-to-cart-btn");
+const noReceiptMsg    = document.getElementById("no-receipt-message");
 
 /* ---------- 3. HELPER FUNCTIONS ---------- */
 
@@ -230,6 +235,13 @@ function renderCart() {
 
   cartTotal.textContent = formatMoney(total);
   amountDue.textContent = formatMoney(total);
+
+  // Cart badge in the sidebar and the Proceed to Payment button
+  let count = 0;
+  for (const item of cart) count += item.quantity;
+  cartCount.textContent = count;
+  cartCount.hidden = (count === 0);
+  toPaymentBtn.disabled = (cart.length === 0);
 }
 
 /* ---------- 6. PAYMENT (Steps 4, 5 & 6) ---------- */
@@ -349,7 +361,8 @@ function showReceipt(transaction) {
   receiptChange.textContent = formatMoney(transaction.change);
 
   receiptSection.hidden = false;
-  receiptSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  noReceiptMsg.hidden = true;
+  showPage("receipt");
 }
 
 /* ---------- 8. NEW TRANSACTION ---------- */
@@ -359,6 +372,7 @@ function startNewTransaction() {
   cashInput.value = "";            // clear payment input
   confirmation.hidden = true;      // hide payment confirmation
   receiptSection.hidden = true;    // hide previous receipt
+  noReceiptMsg.hidden = false;
   receiptItems.innerHTML = "";
   receiptRef.textContent = "";
   receiptDate.textContent = "";
@@ -368,7 +382,18 @@ function startNewTransaction() {
   renderCart();
   searchInput.value = "";
   renderProducts();
-  cashInput.focus();
+  showPage("home");
+}
+
+// Show one page (home, cart, payment or receipt) and hide the others
+function showPage(name) {
+  for (const page of pages) {
+    page.hidden = (page.id !== "page-" + name);
+  }
+  for (const link of navLinks) {
+    link.classList.toggle("active", link.dataset.page === name);
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // Empty the whole cart (Clear Cart button)
@@ -427,13 +452,16 @@ searchInput.addEventListener("input", function () {
   renderProducts(searchInput.value);
 });
 
-// Highlight the sidebar link that was clicked
+// Sidebar links switch pages
 for (const link of navLinks) {
-  link.addEventListener("click", function () {
-    for (const other of navLinks) other.classList.remove("active");
-    link.classList.add("active");
+  link.addEventListener("click", function (event) {
+    event.preventDefault();
+    showPage(link.dataset.page);
   });
 }
+
+toPaymentBtn.addEventListener("click", function () { showPage("payment"); });
+backToCartBtn.addEventListener("click", function () { showPage("cart"); });
 
 /* ---------- 10. START THE APP ---------- */
 renderProducts();

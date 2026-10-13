@@ -254,11 +254,26 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 button:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
 .product-card:has(button:disabled):hover { border-color: var(--border); box-shadow: none; }
 
-/* 11. RESPONSIVE */
+/* 11. PAGES (Home / Cart / Payment / Receipt) */
+.page-narrow { max-width: 640px; }
+.cart-panel .btn-large { margin-top: 14px; }
+.page-narrow .confirmation { margin: 0 0 20px; }
+.nav-badge {
+  display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px;
+  background: var(--yellow); color: var(--text); font-size: 0.8rem; font-weight: 700;
+  text-align: center; border-radius: 999px;
+}
+.nav-link.active .nav-badge { background: var(--red-dark); color: var(--white); }
+.btn-link {
+  display: block; margin: 12px auto 0; padding: 6px 10px;
+  background: none; color: var(--red-dark); font-size: 0.95rem;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* 12. RESPONSIVE */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { flex-direction: row; flex-wrap: wrap; }
   .tagline { display: none; }
-  .layout { grid-template-columns: 1fr; }
   .app-header { flex-wrap: wrap; padding: 14px 16px; }
 }

@@ -29,18 +29,18 @@
 
     <!-- ===== SIDEBAR (jumps to sections on this page) ===== -->
     <nav class="sidebar" aria-label="Main sections">
-      <a class="nav-link active" href="#products-title">🏠 Home</a>
-      <a class="nav-link" href="#cart-title">🛒 Cart</a>
-      <a class="nav-link" href="#payment-title">💳 Payment</a>
-      <a class="nav-link" href="#receipt-title">🧾 Receipt</a>
+      <a class="nav-link active" href="#home" data-page="home">🏠 Home</a>
+      <a class="nav-link" href="#cart" data-page="cart">🛒 Cart <span class="nav-badge" id="cart-count" hidden>0</span></a>
+      <a class="nav-link" href="#payment" data-page="payment">💳 Payment</a>
+      <a class="nav-link" href="#receipt" data-page="receipt">🧾 Receipt</a>
       <p class="tagline" aria-hidden="true">Snacks<br>Supplies<br>Essentials<br>for You!</p>
     </nav>
 
     <!-- ===== MAIN CONTENT ===== -->
     <main class="content">
-      <div class="layout">
 
-        <!-- PRODUCTS (Step 1 & 2) -->
+      <!-- HOME: product list only (Step 1 & 2) -->
+      <div class="page" id="page-home">
         <section class="panel products-panel" aria-labelledby="products-title">
           <div class="panel-head">
             <h2 id="products-title">Product List</h2>
@@ -50,106 +50,114 @@
             <p class="placeholder">Products will appear here once script.js is added.</p>
           </div>
         </section>
-
-        <div class="side-column">
-
-          <!-- CART / ORDER SUMMARY (Step 2 & 3) -->
-          <section class="panel cart-panel" aria-labelledby="cart-title">
-            <div class="panel-head">
-              <h2 id="cart-title">Order Summary</h2>
-              <button type="button" id="clear-cart-btn" class="btn btn-outline">Clear Cart</button>
-            </div>
-
-            <p id="empty-cart-message" class="placeholder">The cart is empty. Add a product to start an order.</p>
-
-            <div class="table-wrap">
-              <table id="cart-table" class="cart-table" hidden>
-                <thead>
-                  <tr>
-                    <th scope="col">Item</th>
-                    <th scope="col">Price</th>
-                    <th scope="col">Qty</th>
-                    <th scope="col">Subtotal</th>
-                    <th scope="col"><span class="visually-hidden">Remove</span></th>
-                  </tr>
-                </thead>
-                <tbody id="cart-items"></tbody>
-              </table>
-            </div>
-
-            <div class="total-bar">
-              <span>Total Amount</span>
-              <strong id="cart-total">₱0.00</strong>
-            </div>
-          </section>
-
-          <!-- CASH PAYMENT (Step 4, 5 & 6) -->
-          <section class="panel payment-panel" aria-labelledby="payment-title">
-            <h2 id="payment-title">Payment</h2>
-
-            <div class="payment-row due">
-              <span>Order Total</span>
-              <strong id="amount-due">₱0.00</strong>
-            </div>
-
-            <label for="cash-input">Cash Payment (₱)</label>
-            <input type="text" id="cash-input" inputmode="decimal" placeholder="Enter amount" autocomplete="off">
-
-            <div class="payment-row">
-              <span>Change</span>
-              <strong id="change-amount">₱0.00</strong>
-            </div>
-
-            <p id="payment-message" class="message" role="alert"></p>
-
-            <button type="button" id="confirm-btn" class="btn btn-primary btn-large">Confirm Payment</button>
-
-            <div id="confirmation" class="confirmation" role="status" hidden>
-              <h3>Transaction Completed!</h3>
-              <p class="thanks">Thank you for shopping! Reference: <strong id="confirm-ref"></strong></p>
-              <div class="confirm-tiles">
-                <p class="tile"><span>Total</span><strong id="confirm-total"></strong></p>
-                <p class="tile"><span>Paid</span><strong id="confirm-paid"></strong></p>
-                <p class="tile"><span>Change</span><strong id="confirm-change"></strong></p>
-              </div>
-            </div>
-          </section>
-
-          <!-- DIGITAL RECEIPT (Step 7) -->
-          <section id="receipt-section" class="panel receipt-panel" aria-labelledby="receipt-title" hidden>
-            <div class="receipt" id="receipt">
-              <p class="receipt-logo" aria-hidden="true">🏪</p>
-              <h2 id="receipt-title" class="receipt-store">Campus Convenience Store</h2>
-              <p class="receipt-center">Official Digital Receipt</p>
-              <p class="receipt-meta">Transaction No.: <strong id="receipt-ref"></strong></p>
-              <p class="receipt-meta">Date &amp; Time: <span id="receipt-date"></span></p>
-
-              <table class="receipt-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Item</th>
-                    <th scope="col">Qty</th>
-                    <th scope="col">Unit Price</th>
-                    <th scope="col">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody id="receipt-items"></tbody>
-              </table>
-
-              <div class="receipt-totals">
-                <p><span>Total Amount</span> <strong id="receipt-total"></strong></p>
-                <p><span>Amount Paid</span> <strong id="receipt-paid"></strong></p>
-                <p><span>Change</span> <strong id="receipt-change"></strong></p>
-              </div>
-
-              <p class="receipt-center">Thank you for shopping!</p>
-            </div>
-
-            <button type="button" id="new-transaction-btn" class="btn btn-primary btn-large">New Transaction</button>
-          </section>
-
-        </div>
       </div>
+
+      <!-- CART: order summary (Step 2 & 3) -->
+      <div class="page page-narrow" id="page-cart" hidden>
+        <section class="panel cart-panel" aria-labelledby="cart-title">
+          <div class="panel-head">
+            <h2 id="cart-title">Order Summary</h2>
+            <button type="button" id="clear-cart-btn" class="btn btn-outline">Clear Cart</button>
+          </div>
+
+          <p id="empty-cart-message" class="placeholder">The cart is empty. Go to Home and add a product to start an order.</p>
+
+          <div class="table-wrap">
+            <table id="cart-table" class="cart-table" hidden>
+              <thead>
+                <tr>
+                  <th scope="col">Item</th>
+                  <th scope="col">Price</th>
+                  <th scope="col">Qty</th>
+                  <th scope="col">Subtotal</th>
+                  <th scope="col"><span class="visually-hidden">Remove</span></th>
+                </tr>
+              </thead>
+              <tbody id="cart-items"></tbody>
+            </table>
+          </div>
+
+          <div class="total-bar">
+            <span>Total Amount</span>
+            <strong id="cart-total">₱0.00</strong>
+          </div>
+
+          <button type="button" id="to-payment-btn" class="btn btn-primary btn-large">Proceed to Payment</button>
+        </section>
+      </div>
+
+      <!-- PAYMENT (Step 4, 5 & 6) -->
+      <div class="page page-narrow" id="page-payment" hidden>
+        <section class="panel payment-panel" aria-labelledby="payment-title">
+          <h2 id="payment-title">Payment</h2>
+
+          <div class="payment-row due">
+            <span>Order Total</span>
+            <strong id="amount-due">₱0.00</strong>
+          </div>
+
+          <label for="cash-input">Cash Payment (₱)</label>
+          <input type="text" id="cash-input" inputmode="decimal" placeholder="Enter amount" autocomplete="off">
+
+          <div class="payment-row">
+            <span>Change</span>
+            <strong id="change-amount">₱0.00</strong>
+          </div>
+
+          <p id="payment-message" class="message" role="alert"></p>
+
+          <button type="button" id="confirm-btn" class="btn btn-primary btn-large">Confirm Payment</button>
+          <button type="button" id="back-to-cart-btn" class="btn btn-link">&larr; Back to Cart</button>
+        </section>
+      </div>
+
+      <!-- RECEIPT: transaction confirmation + digital receipt (Step 6 & 7) -->
+      <div class="page page-narrow" id="page-receipt" hidden>
+        <p id="no-receipt-message" class="placeholder">No receipt yet. Confirm a payment to see the transaction here.</p>
+
+        <div id="confirmation" class="confirmation" role="status" hidden>
+          <h3>Transaction Completed!</h3>
+          <p class="thanks">Thank you for shopping! Reference: <strong id="confirm-ref"></strong></p>
+          <div class="confirm-tiles">
+            <p class="tile"><span>Total</span><strong id="confirm-total"></strong></p>
+            <p class="tile"><span>Paid</span><strong id="confirm-paid"></strong></p>
+            <p class="tile"><span>Change</span><strong id="confirm-change"></strong></p>
+          </div>
+        </div>
+
+        <section id="receipt-section" class="panel receipt-panel" aria-labelledby="receipt-title" hidden>
+          <div class="receipt" id="receipt">
+            <p class="receipt-logo" aria-hidden="true">🏪</p>
+            <h2 id="receipt-title" class="receipt-store">Campus Convenience Store</h2>
+            <p class="receipt-center">Official Digital Receipt</p>
+            <p class="receipt-meta">Transaction No.: <strong id="receipt-ref"></strong></p>
+            <p class="receipt-meta">Date &amp; Time: <span id="receipt-date"></span></p>
+
+            <table class="receipt-table">
+              <thead>
+                <tr>
+                  <th scope="col">Item</th>
+                  <th scope="col">Qty</th>
+                  <th scope="col">Unit Price</th>
+                  <th scope="col">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody id="receipt-items"></tbody>
+            </table>
+
+            <div class="receipt-totals">
+              <p><span>Total Amount</span> <strong id="receipt-total"></strong></p>
+              <p><span>Amount Paid</span> <strong id="receipt-paid"></strong></p>
+              <p><span>Change</span> <strong id="receipt-change"></strong></p>
+            </div>
+
+            <p class="receipt-center">Thank you for shopping!</p>
+          </div>
+
+          <button type="button" id="new-transaction-btn" class="btn btn-primary btn-large">New Transaction</button>
+        </section>
+      </div>
+
     </main>
   </div>
 </div>
